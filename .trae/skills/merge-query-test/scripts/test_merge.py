@@ -54,14 +54,16 @@ def main():
         scope = {Path(i).name for i in idxs} if idxs else names
 
         problems = []
-        if len(rows) != k:
-            problems.append(f"条数 {len(rows)} != {k}")
+        if not (1 <= len(rows) <= k):
+            problems.append(f"条数 {len(rows)} 不在 1..{k}")
         if scores != sorted(scores):
             problems.append("L2 未升序")
         if nums != list(range(1, len(rows) + 1)):
             problems.append("编号不连续")
         if not srcs <= scope:
             problems.append(f"来源越界 {srcs - scope}")
+        if any(s > tools.L2_MAX for s in scores):
+            problems.append(f"存在超出 L2_MAX={tools.L2_MAX} 的结果")
         if idxs is None and len(srcs) >= 2:
             merged_hit = True
 
@@ -73,10 +75,22 @@ def main():
     if not merged_hit:
         fails.append("没有任何用例同时命中 2 个库，合并查询未生效")
 
+    print("\n=== 门槛 ===")
+    gate_checks = [
+        ("无关算式返回不知道", "416131531+456651656=？"),
+        ("库里没有的问题返回不知道", "如何办理护照"),
+    ]
+    for name, q in gate_checks:
+        text = tools.search_knowledge(q, top_k=3)
+        ok = text.strip() == tools.UNKNOWN
+        print(f"  [{'PASS' if ok else 'FAIL'}] {name} -> {text.splitlines()[0][:40]}")
+        if not ok:
+            fails.append(name)
+
     print("\n=== 边界 ===")
     checks = [
         ("top_k=0 夹取为 1", lambda: len(parse(tools.search_knowledge("温度", 0))) == 1),
-        ("top_k=99 夹取为 20", lambda: len(parse(tools.search_knowledge("温度", 99))) == 20),
+        ("top_k=99 夹取为 20", lambda: 1 <= len(parse(tools.search_knowledge("温度", 99))) <= 20),
         ("空 query 抛异常", lambda: _raises(lambda: tools.search_knowledge(""))),
         ("未知库名抛异常", lambda: _raises(lambda: tools.search_knowledge("温度", 3, ["不存在的库"]))),
         ("未创建垃圾目录", lambda: not (ROOT / "知识库" / "向量库" / "不存在的库").exists()),

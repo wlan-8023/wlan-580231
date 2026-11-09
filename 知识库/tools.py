@@ -135,8 +135,28 @@ def _rag():
     return _RAG
 
 
+# 检索门槛：L2 距离上限 + 词语支撑校验
+L2_MAX = 0.9
+UNKNOWN = "不知道：向量库中未检索到可支撑该问题的内容"
+
+
+def _tokens(text):
+    """抽取数字与中文二元组，用于判断命中内容是否真的与问题相关。"""
+    toks = set(re.findall(r"\d+(?:\.\d+)?", text))
+    for seg in re.findall(r"[\u4e00-\u9fff]+", text):
+        if len(seg) == 1:
+            toks.add(seg)
+        else:
+            toks.update(seg[i:i + 2] for i in range(len(seg) - 1))
+    return toks
+
+
 def search_knowledge(query, top_k=5, indexes=None):
-    """检索本地向量库：默认合并 知识库/向量库 下全部索引，返回格式化命中结果。"""
+    """检索本地向量库：默认合并 知识库/向量库 下全部索引。
+
+    结果需同时满足：L2 ≤ L2_MAX，且内容与问题存在词语重叠（防止形似但无答案）。
+    无结果时返回 UNKNOWN。
+    """
     if not query or not str(query).strip():
         raise ValueError("query 不能为空")
     try:
@@ -154,9 +174,18 @@ def search_knowledge(query, top_k=5, indexes=None):
             if not p.exists():
                 p = rag.VECTOR_DIR / str(i)
             dirs.append(str(p))
-    hits = rag.search(str(query), k=k, indexes=dirs)
+
+    q_tokens = _tokens(str(query))
+    hits = []
+    for h in rag.search(str(query), k=k, indexes=dirs):
+        if h["score"] > L2_MAX:
+            continue
+        if q_tokens and not (q_tokens & _tokens(h["content"])):
+            continue
+        hits.append(h)
+
     if not hits:
-        return "无匹配结果"
+        return UNKNOWN
     return "\n\n".join(
         f"[{i}] L2={h['score']:.3f} | {h['index']} | {h['section']}\n{h['content']}"
         for i, h in enumerate(hits, 1)
