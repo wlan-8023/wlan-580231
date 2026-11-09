@@ -139,7 +139,11 @@ def search_knowledge(query, top_k=5, indexes=None):
     """检索本地向量库：默认合并 知识库/向量库 下全部索引，返回格式化命中结果。"""
     if not query or not str(query).strip():
         raise ValueError("query 不能为空")
-    k = max(1, min(int(top_k or 5), 20))
+    try:
+        k = int(top_k) if top_k is not None else 5
+    except (TypeError, ValueError):
+        k = 5
+    k = max(1, min(k, 20))
     rag = _rag()
     dirs = None
     if indexes:

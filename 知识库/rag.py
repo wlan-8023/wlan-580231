@@ -133,6 +133,8 @@ def search(query, k=4, indexes=None):
 
     hits = []
     for p in indexes:
+        if not (p / "index.faiss").exists():
+            raise RuntimeError(f"索引不存在：{p}")
         with _in_dir(p):
             store = FAISS.load_local(".", emb, allow_dangerous_deserialization=True)
         for doc, score in store.similarity_search_with_score(query, k=k):
