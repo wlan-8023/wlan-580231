@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "local-tools": {
+      "command": "C:\\Users\\Administrator\\.local\\share\\python312\\python.exe",
+      "args": ["-u", "c:\\Users\\Administrator\\Desktop\\AItest\\知识库\\tools.py"]
+    }
+  }
+}
